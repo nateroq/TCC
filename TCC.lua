@@ -8,8 +8,11 @@
 
 function update () -- periodic function that will be called
     if mission:state() == mission.MISSION_RUNNING then -- check to see if mission is running
-      current_pos = ahrs:get_relative_position_NED_origin(); -- fetch the current position of the vehicle
-      current_pos:z(-1*current_pos:z()); -- fromm ned to neu
+      current_pos = ahrs:get_relative_position_NED_home(); -- fetch the current position of the vehicle
+      --current_pos:z(-1*current_pos:z()); -- fromm ned to neu
+      --local posloc = ahrs:get_position();
+      --current_pos = posloc:get_vector_from_origin_NEU();
+      --gcs:send_text(0, string.format("coord - x:%.1f y:%.1f z:%.1f", posloc:lat(), posloc:lng(), posloc:alt()));
       gcs:send_text(0, string.format("current position - x:%.1f y:%.1f z:%.1f", current_pos:x(), current_pos:y(), current_pos:z()));
       if mission:get_current_nav_index() < 8 then -- if it is the first waypoint
         local homeloc = ahrs:get_home();  -- fetch the home position of the vehicle
@@ -19,10 +22,10 @@ function update () -- periodic function that will be called
         wi1loc:lat(nextwp:x());
         wi1loc:lng(nextwp:y());
         wi1loc:alt(nextwp:z());
-        wi1 = wi1loc:get_vector_from_origin_NEU(); -- convert wi1 to neu
-        --gcs:send_text(0, string.format("FIRST WAYPOINT"));
-        --gcs:send_text(0, string.format("wi - Lat:%.1f Long:%.1f Alt:%.1f", wi:x(), wi:y(), wi:z()));
-        gcs:send_text(0, string.format("wi1 - Lat:%.1f Long:%.1f Alt:%.1f", wi1:x() , wi1:y(), wi1:z()));
+        wi1 = wi1loc:get_distance_NED(ahrs:get_home()); -- convert wi1 to neu
+        --gcs:send_text(0, string.format("FIRST WAYPOINT"));   
+        gcs:send_text(0, string.format("wp item - Lat:%.1f Long:%.1f Alt:%.1f", nextwp:x() , nextwp:y(), nextwp:z()));
+        gcs:send_text(0, string.format("wi+1 - Lat:%.1f Long:%.1f Alt:%.1f", wi1:x(), wi1:y(), wi1:z()));
         --local alpha = 
 
          --[=====[ 
