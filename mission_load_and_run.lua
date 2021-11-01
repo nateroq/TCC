@@ -57,7 +57,7 @@ local function read_mission(file_name)
   end
 
 end
-
+--[=====[ 
 function update()
   local current_pos = ahrs:get_position()
   local origin = ahrs:get_origin()
@@ -117,3 +117,4 @@ function update()
 end
 
 return update()
+--]=====]
