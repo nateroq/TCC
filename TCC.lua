@@ -9,16 +9,38 @@
 
 --#endregion
 
-function MvV(m1,m2)
+--#region CSV FILE CREATION
+
+file_name = "logs/Test1.csv";
+file = io.open(file_name, "a");
+file:write('Ex(m), Ey(m), Ez(m)\n')
+file:flush()
+
+--#endregion
+
+function write_to_file(interesting_data)
+  if not file then
+    error("Could not open file")
+  end
+
+  -- write data
+  -- separate with comas and add a carriage return
+  file:write(table.concat(interesting_data,", ") .. "\n")
+
+  -- make sure file is upto date
+  file:flush()
+end
+
+
+function MvV(m1,m2) -- MATRIX * VECTOR
   local R = {};
   for i = 1, 3, 1 do
     R[i] = (m1[i][1]*m2[1])+(m1[i][2]*m2[2])+(m1[i][3]*m2[3]);
   end
-
   return R;
 end
 
-function print_val(val,strg, typ)
+function print_val(val,strg, typ) -- PRINT VALUES
   if typ == 0 then
     gcs:send_text(0, string.format("%s: [%.2f, %.2f, %.2f]",strg, val[1], val[2], val[3]));
   elseif typ == 1 then
@@ -32,6 +54,8 @@ function print_val(val,strg, typ)
   end
 end
 
+wp = mission:get_current_nav_index(); -- flag for wi=wi+1 control
+
 function update () -- periodic function that will be called
     if mission:state() == mission.MISSION_RUNNING then -- check to see if mission is running
       if (mission:get_current_nav_index() > 1  and 
@@ -41,9 +65,11 @@ function update () -- periodic function that will be called
 
         if mission:get_current_nav_index() == 2 then
           wi = (ahrs:get_home()):get_vector_from_origin_NEU(); --the first waypoint is home position
-          wi:x(-wi:x());wi:y(-wi:y()); -- direction change beacause of conversion
-        else
+          wi:x(-wi:x());wi:y(-wi:y());wi:z(-10); -- direction change beacause of conversion
+          
+        elseif wp ~= mission:get_current_nav_index()  then
           wi = wi1; -- otherwise wi is the previous wi+1
+          wp = mission:get_current_nav_index(); -- only when waypoint passes
         end
         p = ahrs:get_relative_position_NED_home(); -- fetch the current position of the vehicle
         local nextwp = mission:get_item(mission:get_current_nav_index()); -- fetch the current wi+1
@@ -93,7 +119,7 @@ function update () -- periodic function that will be called
         --#region SIXTH STEP: Ry'
         local Ry = {{(math.cos(beta)),0,(math.sin(beta))}, 
                     {0,1,0}, 
-                    {(-math.sin(beta)),1,(math.cos(beta))}};
+                    {(-math.sin(beta)),0,(math.cos(beta))}};
 
         --#endregion
 
@@ -107,12 +133,16 @@ function update () -- periodic function that will be called
         --#endregion
 
         --#region SAVE AS CSV
+        
+        write_to_file(erro);
 
         --#endregion
 
         --#region PRINTS
         --print_val(alpha,'Alpha'); -- for number don't send a third argument
+        --print_val({p:x(),p:y(),p:z()},'P',0);
         --print_val({wi:x(),wi:y(),wi:z()},'WI',0); --for Vector3() types send as table with 0 as third argument
+        --print_val({wi1:x(),wi1:y(),wi1:z()},'WI+1',0);
         print_val(erro,'Erro:',0); -- for table also use 0 as third argument
         --print_val(Rz,'Rz',1); -- for table of tables use 1 as third argument
         --#endregion
