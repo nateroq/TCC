@@ -9,6 +9,9 @@ local mission_loaded = false
 local mission_started = false
 local mission_ended = false
 
+--Need to be 2 so the aircraft takes off 
+--param:set('AUTO_OPTIONS',2)
+
 local function read_mission(file_name)
   -- Open file
   file = assert(io.open(file_name), 'Could open :' .. file_name)
