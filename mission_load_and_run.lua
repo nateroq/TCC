@@ -2,9 +2,9 @@
 
 -- File that contains the mission starting with takeoff and ending with a return to launch
 -- Put your file inside ArduCopter folder
-local navigation_file = 'way_1.txt'
+local navigation_file = 'Missions_TCC/closedangles.waypoints'
 -- Set as true if you want to repeat the mission continuously
-local repeat_mission = true
+local repeat_mission = false
 local mission_loaded = false
 local mission_started = false
 local mission_ended = false
@@ -57,7 +57,6 @@ local function read_mission(file_name)
   end
 
 end
---[=====[ 
 function update()
   local current_pos = ahrs:get_position()
   local origin = ahrs:get_origin()
@@ -103,7 +102,7 @@ function update()
   end
 
   if mission_state == mission.MISSION_COMPLETE then
-    gcs:send_text(6, 'Mission Ended!')
+    --gcs:send_text(6, 'Mission Ended!')
     if repeat_mission then
       gcs:send_text(6, 'Starting again.. ')
       mission:set_current_cmd(0)
@@ -117,4 +116,3 @@ function update()
 end
 
 return update()
---]=====]
