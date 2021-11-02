@@ -81,28 +81,21 @@ function update () -- periodic function that will be called
         --#endregion
 
         --#region FIRST STEP: ALPHA
-
         local alpha = math.atan( (wi1:y()) - (wi:y()),(wi1:x()) - (wi:x()) );
-
         --#endregion
 
         --#region SECOND STEP: Rz
-        local Rz = {{(math.cos(alpha)),(-math.sin(alpha)),0}, 
-                    {(math.sin(alpha)),(math.cos(alpha)),0}, 
+        local Rz = {{(math.cos(alpha)),(math.sin(alpha)),0}, 
+                    {(-math.sin(alpha)),(math.cos(alpha)),0}, 
                     {0,0,1}};
-
         --#endregion
 
         --#region THIRD STEP: Rz * WI
-
         local WiR = MvV(Rz,{wi:x(),wi:y(),wi:z()});
-        
         --#endregion
 
         --#region FOURTH STEP: Rz * WI+1
-        
         local Wi1R = MvV(Rz,{wi1:x(),wi1:y(),wi1:z()});
-
         --#endregion
 
         --#region FIFTH STEP: BETA
@@ -113,19 +106,16 @@ function update () -- periodic function that will be called
         bet_y = bet_y*bet_y;
         local bet_sqr = math.sqrt((bet_x+bet_y));
         local beta = math.atan(bet_z,bet_sqr);
-
         --#endregion
 
         --#region SIXTH STEP: Ry'
-        local Ry = {{(math.cos(beta)),0,(math.sin(beta))}, 
+        local Ry = {{(math.cos(beta)),0,(-math.sin(beta))}, 
                     {0,1,0}, 
-                    {(-math.sin(beta)),0,(math.cos(beta))}};
-
+                    {(math.sin(beta)),0,(math.cos(beta))}};
         --#endregion
 
         --#region SEVENTH STEP: P-WI
         local pminusw = {(p:x() - wi:x()),(p:y() - wi:y()),(p:z() - wi:z())};
-
         --#endregion
 
         --#region EIGTH STEP: Ry' * Rz * P - WI
@@ -133,9 +123,7 @@ function update () -- periodic function that will be called
         --#endregion
 
         --#region SAVE AS CSV
-        
         write_to_file(erro);
-
         --#endregion
 
         --#region PRINTS
