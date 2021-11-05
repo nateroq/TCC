@@ -1,64 +1,64 @@
---#region CSV FILE CREATION
-flag = 0; -- flag for mission
-flag2 = 1; -- flag for experiment
-
-function mission_control () -- function that controls the creation of csc for the missions
-  file_name = "logs/exp/exp" .. tostring(flag2) ..  "/Mission" .. tostring(flag) .. ".csv"; --file name changes for each mission
-  file = io.open(file_name, "a"); -- append/create the .csv 
-  file:write('Ex(m), Ey(m), Ez(m)\n') --csv headers
-  file:flush() --save to file
-end
-
-function experiment_control () -- function that controls the creation of csv for the whole experiment
-  mean_file_name = "logs/exp/exp" .. tostring(flag2) ..  "/Mission" .. tostring(flag2) .. "_mean.csv"; --file name changes for each experiment
-  file_mean = io.open(mean_file_name, "a"); --append/create .csv
-  file_mean:write('Ex(m), Ey(m), Ez(m)\n') --csv headers
-  file_mean:flush() --save to file
-end
-experiment_control()--call to create as soon as the script starts
---#endregion
-
---#region Setting parameters for missions
+--#region Flags and Globals
+-- Parameters that can be changed
+experiment_id = 1; -- flag for experiment
+max_number_replications = 2 -- total number of replications for experiment
+navigation_file = 'Missions_TCC/way_1.txt';
+param:set('SIM_WIND_SPD',0);
+flag_ctrl_mission = 1;
+-- Global Variables that should not be changed
+replication_number = 0; -- replication number of the experiment
 repeat_mission = true
 mission_loaded = false
 mission_started = false
-navigation_file = 'Missions_TCC/openangles.waypoints';
-param:set('SIM_WIND_SPD',0);
+mission_ended = true
+wp = mission:get_current_nav_index(); -- flag for wi=wi+1 control
+vetor_erro = {0,0,0}; -- error vector
+verror_size = 0;
+written_file_replication = false;
+--#endregion
+
+function experiment_control() -- function that controls the creation of csv for the whole experiment
+  mean_file_name = "logs/exp/exp" .. tostring(experiment_id) .. "_mean.csv"; --file name changes for each experiment
+  mean_file = io.open(mean_file_name, "a"); --append/create .csv
+  mean_file:write('Replication, Ex(m), Ey(m), Ez(m)\n') --csv headers
+  mean_file:flush() --save to file
+
+  all_errors_file_name = "logs/exp/exp" .. tostring(experiment_id) .. "_all_errors.csv"; --file name changes for each experiment
+  all_errors_file = io.open(all_errors_file_name, "a"); --append/create .csv
+  all_errors_file:write('Ex(m), Ey(m), Ez(m)\n') --csv headers
+  all_errors_file:flush() --save to file
+end
+
+--#region Setting parameters for missions
 function mission_param()
-  if flag2 == 2 then
+  if experiment_id == 2 then
     param:set('SIM_WIND_SPD',5);
   end
-  if flag2 == 3 then
+  if experiment_id == 3 then
     param:set('SIM_WIND_SPD',10);
   end
-  if flag2 == 4 then
+  if experiment_id == 4 then
     navigation_file = 'Missions_TCC/closedangles.waypoints';
     param:set('SIM_WIND_SPD',5);
   end
-  if flag2 == 5 then
+  if experiment_id == 5 then
     navigation_file = 'Missions_TCC/smallsquare.waypoints';
     param:set('SIM_WIND_SPD',5);
     repeat_mission = false
   end
 end
-
 --#endregion
 
 --#region WRITE DATA TO OPEN FILE
-function write_to_file(interesting_data, case)
+function write_to_file(file, interesting_data)
   if not file then
     error("Could not open file")
   end
   -- separate with comas and add a carriage return
   -- make sure file is upto date
-  if case then
-    file_mean:write(table.concat(interesting_data,", ") .. "\n");
-    file_mean:flush();
-  else
-    file:write(table.concat(interesting_data,", ") .. "\n");
-    file:flush();
-  end
-  
+  file:write(table.concat(interesting_data,", ") .. "\n");
+  file:flush();
+
 end
 --#endregion
 
@@ -114,7 +114,7 @@ end
 --#endregion
 
 --#region CALCULATER THE MATRIX * VECTOR
-function MvV(m1,m2) 
+function MvV(m1,m2)
   local R = {};
   for i = 1, 3, 1 do
     R[i] = (m1[i][1]*m2[1])+(m1[i][2]*m2[2])+(m1[i][3]*m2[3]);
@@ -124,7 +124,7 @@ end
 --#endregion
 
 --#region PRINT VALUES
-function print_val(val,strg, typ) 
+function print_val(val,strg, typ)
   if typ == 0 then
     gcs:send_text(0, string.format("%s: [%.2f, %.2f, %.2f]",strg, val[1], val[2], val[3]));
   elseif typ == 1 then
@@ -137,13 +137,6 @@ function print_val(val,strg, typ)
     gcs:send_text(0, string.format("%s: %.2f ", strg, val));
   end
 end
---#endregion
-
---#region Flags and Globals
-wp = mission:get_current_nav_index(); -- flag for wi=wi+1 control
-vetor_erro = {0,0,0}; -- error vector
-verror_size = 0;
-flag_ctrl_mission = 1;
 --#endregion
 
 function update () -- periodic function that will be called
@@ -160,113 +153,126 @@ function update () -- periodic function that will be called
     gcs:send_text(6, 'Mode auto')
     if not vehicle:set_mode(3) then
       return update, 10000
-    else
-      mission_started = true
-      verror_size = 0;
-      flag = flag+1; --flag for file change increments
-      if flag>3 then
-        flag2 = flag2+1;
-        experiment_control();
-        mission_loaded = false;
-        mission_started = false;
-        mission_param()
-        flag = 1;
-      end
-      mission_control();--call to create as soon as the mission starts
     end
   end
+
   --#endregion
 
-    if mission:state() == mission.MISSION_RUNNING then -- check to see if mission is running
-      if (mission:get_current_nav_index() > 1  and 
-            mission:get_current_nav_index() < (mission:num_commands() -1))  then -- if it is not takeoff or RTL
-        
-        --#region P WI WI+1 DEFINITION
-        if mission:get_current_nav_index() == 2 then
-          wi = (ahrs:get_home()):get_vector_from_origin_NEU(); --the first waypoint is home position
-          wi:x(-wi:x());wi:y(-wi:y());wi:z(-10); -- direction change beacause of conversion
-          
-        elseif wp ~= mission:get_current_nav_index()  then
-          wi = wi1; -- otherwise wi is the previous wi+1
-          wp = mission:get_current_nav_index(); -- only when waypoint passes
-        end
-        p = ahrs:get_relative_position_NED_home(); -- fetch the current position of the vehicle
-        local nextwp = mission:get_item(mission:get_current_nav_index()); -- fetch the current wi+1
-        local wi1loc = Location(); -- create Localtion for easy NED convertion
-        wi1loc:lat(nextwp:x());wi1loc:lng(nextwp:y());wi1loc:alt(nextwp:z()); -- fill with coords
-        wi1 = (ahrs:get_home()):get_distance_NED(wi1loc); -- convert wi+1 to NED
-        wi1:z(-wi1loc:alt()); -- reconfiguring alt beacause conversion
-        --#endregion
-
-        --#region FIRST STEP: ALPHA
-        local alpha = math.atan( (wi1:y()) - (wi:y()),(wi1:x()) - (wi:x()) );
-        --#endregion
-
-        --#region SECOND STEP: Rz
-        local Rz = {{(math.cos(alpha)),(math.sin(alpha)),0}, 
-                    {(-math.sin(alpha)),(math.cos(alpha)),0}, 
-                    {0,0,1}};
-        --#endregion
-
-        --#region THIRD STEP: Rz * WI
-        local WiR = MvV(Rz,{wi:x(),wi:y(),wi:z()});
-        --#endregion
-
-        --#region FOURTH STEP: Rz * WI+1
-        local Wi1R = MvV(Rz,{wi1:x(),wi1:y(),wi1:z()});
-        --#endregion
-
-        --#region FIFTH STEP: BETA
-        local bet_z = (WiR[3] - Wi1R[3]);
-        local bet_x = (Wi1R[1] - WiR[1]);
-        bet_x = bet_x*bet_x;
-        local bet_y = (Wi1R[2] - WiR[2]);
-        bet_y = bet_y*bet_y;
-        local bet_sqr = math.sqrt((bet_x+bet_y));
-        local beta = math.atan(bet_z,bet_sqr);
-        --#endregion
-
-        --#region SIXTH STEP: Ry'
-        local Ry = {{(math.cos(beta)),0,(-math.sin(beta))}, 
-                    {0,1,0}, 
-                    {(math.sin(beta)),0,(math.cos(beta))}};
-        --#endregion
-
-        --#region SEVENTH STEP: P-WI
-        local pminusw = {(p:x() - wi:x()),(p:y() - wi:y()),(p:z() - wi:z())};
-        --#endregion
-
-        --#region EIGTH STEP: Ry' * Rz * P - WI
-        local erro = MvV(Ry,(MvV(Rz,pminusw)));
-        vetor_erro = {vetor_erro[1]+erro[1],vetor_erro[2]+erro[2],vetor_erro[3]+erro[3]};
-        verror_size = verror_size+1;
-        --#endregion
-
-        --#region SAVE AS CSV
-        write_to_file(erro);
-        --#endregion
-
-        
-        --#region PRINTS
-        --print_val(alpha,'Alpha'); -- for number don't send a third argument
-        --print_val({wi:x(),wi:y(),wi:z()},'WI',0); --for Vector3() types send as table with 0 as third argument
-        --print_val(erro,'Erro:',0); -- for table also use 0 as third argument
-        --print_val(Rz,'Rz',1); -- for table of tables use 1 as third argument
-        --#endregion
-        
-      end
-      
+  if mission:state() == mission.MISSION_RUNNING then -- check to see if mission is running
+    if (mission_ended == true) then
+      mission_ended = false
+      mission_started = true
+      verror_size = 0;
+      replication_number = replication_number+1; --flag for file change increments
+      gcs:send_text(6, 'Replication number ' .. replication_number)
+      written_file_replication = false
+      write_to_file(all_errors_file, {replication_number});
     end
-    if mission:state() == mission.MISSION_COMPLETE then -- if mission ended save mission mean to csv 
-      if flag_ctrl_mission ~= flag then
-        vetor_erro = {vetor_erro[1]/verror_size,vetor_erro[2]/verror_size,vetor_erro[3]/verror_size};
-        write_to_file(vetor_erro, 1);
-        vehicle:set_mode(0)
-        mission:set_current_cmd(0)
-        flag_ctrl_mission = flag;
-      end
-      
+
+
+    if (mission:get_current_nav_index() > 1  and
+        mission:get_current_nav_index() < (mission:num_commands() -1))  then -- if it is not takeoff or RTL
+
+    --#region P WI WI+1 DEFINITION
+    if mission:get_current_nav_index() == 2 then
+      wi = (ahrs:get_home()):get_vector_from_origin_NEU(); --the first waypoint is home position
+      wi:x(-wi:x());wi:y(-wi:y());wi:z(-10); -- direction change beacause of conversion
+
+    elseif wp ~= mission:get_current_nav_index()  then
+      wi = wi1; -- otherwise wi is the previous wi+1
+      wp = mission:get_current_nav_index(); -- only when waypoint passes
     end
-    return update, 500 -- request "update" to be rerun again 1000 milliseconds (1/2 second) from now
+    p = ahrs:get_relative_position_NED_home(); -- fetch the current position of the vehicle
+    local nextwp = mission:get_item(mission:get_current_nav_index()); -- fetch the current wi+1
+    local wi1loc = Location(); -- create Localtion for easy NED convertion
+    wi1loc:lat(nextwp:x());wi1loc:lng(nextwp:y());wi1loc:alt(nextwp:z()); -- fill with coords
+    wi1 = (ahrs:get_home()):get_distance_NED(wi1loc); -- convert wi+1 to NED
+    wi1:z(-wi1loc:alt()); -- reconfiguring alt beacause conversion
+    --#endregion
+
+    --#region FIRST STEP: ALPHA
+    local alpha = math.atan( (wi1:y()) - (wi:y()),(wi1:x()) - (wi:x()) );
+    --#endregion
+
+    --#region SECOND STEP: Rz
+    local Rz = {{(math.cos(alpha)),(math.sin(alpha)),0},
+                {(-math.sin(alpha)),(math.cos(alpha)),0},
+                {0,0,1}};
+    --#endregion
+
+    --#region THIRD STEP: Rz * WI
+    local WiR = MvV(Rz,{wi:x(),wi:y(),wi:z()});
+    --#endregion
+
+    --#region FOURTH STEP: Rz * WI+1
+    local Wi1R = MvV(Rz,{wi1:x(),wi1:y(),wi1:z()});
+    --#endregion
+
+    --#region FIFTH STEP: BETA
+    local bet_z = (WiR[3] - Wi1R[3]);
+    local bet_x = (Wi1R[1] - WiR[1]);
+    bet_x = bet_x*bet_x;
+    local bet_y = (Wi1R[2] - WiR[2]);
+    bet_y = bet_y*bet_y;
+    local bet_sqr = math.sqrt((bet_x+bet_y));
+    local beta = math.atan(bet_z,bet_sqr);
+    --#endregion
+
+    --#region SIXTH STEP: Ry'
+    local Ry = {{(math.cos(beta)),0,(-math.sin(beta))},
+                {0,1,0},
+                {(math.sin(beta)),0,(math.cos(beta))}};
+    --#endregion
+
+    --#region SEVENTH STEP: P-WI
+    local pminusw = {(p:x() - wi:x()),(p:y() - wi:y()),(p:z() - wi:z())};
+    --#endregion
+
+    --#region EIGTH STEP: Ry' * Rz * P - WI
+    local erro = MvV(Ry,(MvV(Rz,pminusw)));
+    vetor_erro = {vetor_erro[1]+erro[1],vetor_erro[2]+erro[2],vetor_erro[3]+erro[3]};
+    verror_size = verror_size+1;
+    --#endregion
+
+    --#region SAVE AS CSV
+    write_to_file(all_errors_file, erro);
+    --#endregion
+
+
+    --#region PRINTS
+    --print_val(alpha,'Alpha'); -- for number don't send a third argument
+    --print_val({wi:x(),wi:y(),wi:z()},'WI',0); --for Vector3() types send as table with 0 as third argument
+    --print_val(erro,'Erro:',0); -- for table also use 0 as third argument
+    --print_val(Rz,'Rz',1); -- for table of tables use 1 as third argument
+    --#endregion
+
+    end
   end
-  return update, 500   -- request "update" to be the first time 1000 milliseconds (1/2 second) after script is loaded
+
+  if (mission:state() == mission.MISSION_COMPLETE and not mission_started and not vehicle:set_mode(0)) then -- if mission ended save mission mean to csv
+    return update, 1000
+  elseif mission:state() == mission.MISSION_COMPLETE then -- if mission ended save mission mean to csv
+    if not written_file_replication then
+      vetor_erro = {vetor_erro[1]/verror_size,vetor_erro[2]/verror_size,vetor_erro[3]/verror_size};
+      local csv_data = {replication_number, vetor_erro[1], vetor_erro[2], vetor_erro[3]};
+      write_to_file(mean_file, csv_data);
+      written_file_replication = true
+    end
+    if (replication_number == max_number_replications) then
+      repeat_mission = false
+    end
+
+    if repeat_mission then
+      mission:set_current_cmd(0)
+      mission_started = false
+      vehicle:set_mode(0)
+    end
+    mission_ended = true
+
+  end
+  return update, 500 -- request "update" to be rerun again 1000 milliseconds (1/2 second) from now
+end
+
+mission_param() --call to create as soon as the script starts
+experiment_control() --call to create as soon as the script starts
+return update, 500   -- request "update" to be the first time 1000 milliseconds (1/2 second) after script is loaded
