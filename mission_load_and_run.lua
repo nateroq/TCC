@@ -100,7 +100,7 @@ function update()
     end
   end
 
-  return update, 250
+  return update, 1000
 end
 
 return update()

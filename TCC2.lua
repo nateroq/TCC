@@ -1,56 +1,39 @@
+--#region Setting parameters for missions
+
+--param:set('WPNAV_SPEED',500) -- Horizontal speed
+--param:set('WPNAV_ACCEL',125) -- Horizontal acceleration
+--param:set('SIM_WIND_SPD',0) -- Horizontal Wind speed
+--param:set('SCR_HEAP_SIZE',1000000) -- Memomy to run scripts
+
+--#endregion
+
 --#region CSV FILE CREATION
-flag = 0; -- flag for mission
+flag = 1; -- flag for mission
 flag2 = 1; -- flag for experiment
 
-function mission_control () -- function that controls the creation of csc for the missions
-  file_name = "logs/exp/exp" .. tostring(flag2) ..  "/Mission" .. tostring(flag) .. ".csv"; --file name changes for each mission
-  file = io.open(file_name, "a"); -- append/create the .csv 
-  file:write('Ex(m), Ey(m), Ez(m)\n') --csv headers
-  file:flush() --save to file
+function mission_control ()
+  file_name = "logs/exp/exp" .. tostring(flag2) ..  "/Mission" .. tostring(flag) .. ".csv";
+  file = io.open(file_name, "a");
+  file:write('Ex(m), Ey(m), Ez(m)\n')
+  file:flush()
 end
+mission_control()
 
-function experiment_control () -- function that controls the creation of csv for the whole experiment
-  mean_file_name = "logs/exp/exp" .. tostring(flag2) ..  "/Mission" .. tostring(flag2) .. "_mean.csv"; --file name changes for each experiment
-  file_mean = io.open(mean_file_name, "a"); --append/create .csv
-  file_mean:write('Ex(m), Ey(m), Ez(m)\n') --csv headers
-  file_mean:flush() --save to file
+function experiment_control ()
+  mean_file_name = "logs/exp/exp" .. tostring(flag2) ..  "/Mission" .. tostring(flag2) .. "_mean.csv";
+  file_mean = io.open(mean_file_name, "a");
+  file_mean:write('Ex(m), Ey(m), Ez(m)\n')
+  file_mean:flush()
 end
-experiment_control()--call to create as soon as the script starts
+experiment_control()
 --#endregion
 
---#region Setting parameters for missions
-repeat_mission = true
-mission_loaded = false
-mission_started = false
-navigation_file = 'Missions_TCC/openangles.waypoints';
-param:set('SIM_WIND_SPD',0);
-function mission_param()
-  if flag2 == 2 then
-    param:set('SIM_WIND_SPD',5);
-  end
-  if flag2 == 3 then
-    param:set('SIM_WIND_SPD',10);
-  end
-  if flag2 == 4 then
-    navigation_file = 'Missions_TCC/closedangles.waypoints';
-    param:set('SIM_WIND_SPD',5);
-  end
-  if flag2 == 5 then
-    navigation_file = 'Missions_TCC/smallsquare.waypoints';
-    param:set('SIM_WIND_SPD',5);
-    repeat_mission = false
-  end
-end
-
---#endregion
-
---#region WRITE DATA TO OPEN FILE
 function write_to_file(interesting_data, case)
   if not file then
     error("Could not open file")
   end
+  -- write data
   -- separate with comas and add a carriage return
-  -- make sure file is upto date
   if case then
     file_mean:write(table.concat(interesting_data,", ") .. "\n");
     file_mean:flush();
@@ -58,73 +41,20 @@ function write_to_file(interesting_data, case)
     file:write(table.concat(interesting_data,", ") .. "\n");
     file:flush();
   end
-  
-end
---#endregion
-
---#region READ MISSION
-function read_mission(mission_file_name)
-  -- Open file
-  mission_file = assert(io.open(mission_file_name), 'Could open :' .. mission_file_name)
-
-  -- check header
-  assert(string.find(mission_file:read('l'),'QGC WPL 110') == 1, mission_file_name .. ': incorrect format')
-
-  -- clear any existing mission
-  assert(mission:clear(), 'Could not clear current mission')
-
-  -- read each line and write to mission
-  local item = mavlink_mission_item_int_t()
-  local index = 0
-  while true do
-
-    local data = {}
-    for i = 1, 12 do
-      data[i] = mission_file:read('n')
-      if data[i] == nil then
-        if i == 1 then
-          gcs:send_text(6, 'loaded mission: ' .. mission_file_name)
-          return -- got to the end of the file
-        else
-          mission:clear() -- clear part loaded mission
-          error('failed to read file')
-        end
-      end
-    end
-
-    item:seq(data[1])
-    item:frame(data[3])
-    item:command(data[4])
-    item:param1(data[5])
-    item:param2(data[6])
-    item:param3(data[7])
-    item:param4(data[8])
-    item:x(data[9]*10^7)
-    item:y(data[10]*10^7)
-    item:z(data[11])
-
-    if not mission:set_item(index,item) then
-      mission:clear() -- clear part loaded mission
-      error(string.format('failed to set mission item %i',index))
-    end
-    index = index + 1
-  end
+  -- make sure file is upto date
 
 end
---#endregion
 
---#region CALCULATER THE MATRIX * VECTOR
-function MvV(m1,m2) 
+
+function MvV(m1,m2) -- MATRIX * VECTOR
   local R = {};
   for i = 1, 3, 1 do
     R[i] = (m1[i][1]*m2[1])+(m1[i][2]*m2[2])+(m1[i][3]*m2[3]);
   end
   return R;
 end
---#endregion
 
---#region PRINT VALUES
-function print_val(val,strg, typ) 
+function print_val(val,strg, typ) -- PRINT VALUES
   if typ == 0 then
     gcs:send_text(0, string.format("%s: [%.2f, %.2f, %.2f]",strg, val[1], val[2], val[3]));
   elseif typ == 1 then
@@ -137,46 +67,13 @@ function print_val(val,strg, typ)
     gcs:send_text(0, string.format("%s: %.2f ", strg, val));
   end
 end
---#endregion
 
---#region Flags and Globals
 wp = mission:get_current_nav_index(); -- flag for wi=wi+1 control
 vetor_erro = {0,0,0}; -- error vector
 verror_size = 0;
-flag_ctrl_mission = 1;
---#endregion
+flag_ctrl_mission = 0;
 
 function update () -- periodic function that will be called
-  --#region START MISSION
-  if not mission_loaded then
-    read_mission(navigation_file)
-    mission_loaded = true
-  end
-  -- start mission
-  if (not mission_started and not arming:is_armed()) then
-    gcs:send_text(6, 'Arming')
-    arming:arm()
-  elseif (arming:is_armed() and vehicle:get_mode() == 0 and repeat_mission ) then
-    gcs:send_text(6, 'Mode auto')
-    if not vehicle:set_mode(3) then
-      return update, 10000
-    else
-      mission_started = true
-      verror_size = 0;
-      flag = flag+1; --flag for file change increments
-      if flag>3 then
-        flag2 = flag2+1;
-        experiment_control();
-        mission_loaded = false;
-        mission_started = false;
-        mission_param()
-        flag = 1;
-      end
-      mission_control();--call to create as soon as the mission starts
-    end
-  end
-  --#endregion
-
     if mission:state() == mission.MISSION_RUNNING then -- check to see if mission is running
       if (mission:get_current_nav_index() > 1  and 
             mission:get_current_nav_index() < (mission:num_commands() -1))  then -- if it is not takeoff or RTL
@@ -246,26 +143,33 @@ function update () -- periodic function that will be called
         write_to_file(erro);
         --#endregion
 
-        
         --#region PRINTS
         --print_val(alpha,'Alpha'); -- for number don't send a third argument
+        --print_val({p:x(),p:y(),p:z()},'P',0);
         --print_val({wi:x(),wi:y(),wi:z()},'WI',0); --for Vector3() types send as table with 0 as third argument
+        --print_val({wi1:x(),wi1:y(),wi1:z()},'WI+1',0);
         --print_val(erro,'Erro:',0); -- for table also use 0 as third argument
         --print_val(Rz,'Rz',1); -- for table of tables use 1 as third argument
         --#endregion
         
       end
-      
+      flag_ctrl_mission = 0;
     end
-    if mission:state() == mission.MISSION_COMPLETE then -- if mission ended save mission mean to csv 
+    if mission:state() == mission.MISSION_COMPLETE then -- if mission ended save to csv 
       if flag_ctrl_mission ~= flag then
         vetor_erro = {vetor_erro[1]/verror_size,vetor_erro[2]/verror_size,vetor_erro[3]/verror_size};
         write_to_file(vetor_erro, 1);
-        vehicle:set_mode(0)
-        mission:set_current_cmd(0)
+        verror_size = 0;
+        vetor_erro = {0,0,0};
+        flag = flag+1; --flag for file change increments
+        if flag>3 then
+          flag2 = flag2+1;
+          experiment_control();
+          flag = 1;
+        end
+        mission_control();
         flag_ctrl_mission = flag;
       end
-      
     end
     return update, 500 -- request "update" to be rerun again 1000 milliseconds (1/2 second) from now
   end
