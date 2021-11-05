@@ -4,7 +4,7 @@
 -- Put your file inside ArduCopter folder
 local navigation_file = 'Missions_TCC/closedangles.waypoints'
 -- Set as true if you want to repeat the mission continuously
-local repeat_mission = false
+local repeat_mission = true
 local mission_loaded = false
 local mission_started = false
 local mission_ended = false
@@ -61,8 +61,6 @@ local function read_mission(file_name)
 
 end
 function update()
-  local current_pos = ahrs:get_position()
-  local origin = ahrs:get_origin()
   local mission_state = mission:state()
 
   if not mission_loaded then
@@ -78,19 +76,6 @@ function update()
   -- end
   -- gcs:send_text(6, 'AHRS initialised')
 
-
-  -- Debugging messages, uncomment to see the values if desirable
-  -- gcs:send_text(6, 'Inside update')
-  -- gcs:send_text(6, 'Current mode ' .. vehicle:get_mode())
-  -- if current_pos then
-  --   gcs:send_text(6, ' current_pos Lat ' .. current_pos:lat() ..
-  --                 ' Long ' .. current_pos:lng() ..
-  --                 ' Alt ' .. current_pos:alt())
-  -- end
-  -- if mission_state then
-  --   gcs:send_text(6, ' mission_state ' .. mission_state)
-  -- end
-
   -- start mission
   if (not mission_started and not arming:is_armed()) then
     gcs:send_text(6, 'Arming')
@@ -105,6 +90,7 @@ function update()
   end
 
   if mission_state == mission.MISSION_COMPLETE then
+    
     --gcs:send_text(6, 'Mission Ended!')
     if repeat_mission then
       gcs:send_text(6, 'Starting again.. ')
@@ -114,8 +100,7 @@ function update()
     end
   end
 
-
-  return update, 1000
+  return update, 250
 end
 
 return update()
