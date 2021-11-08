@@ -82,7 +82,6 @@ function mission_param()
   gcs:send_text(6, string.format('Wind:  %i',param1));
   gcs:send_text(6, string.format('Speed: %i',param2));
   gcs:send_text(6, string.format('Accel: %i',param3));
-
 end
 --#endregion
 
