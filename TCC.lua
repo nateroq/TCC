@@ -1,6 +1,6 @@
 --#region Flags and Globals
 -- Parameters that can be changed
-experiment_id = 9; -- flag for experiment
+experiment_id = 4; -- flag for experiment
 max_number_replications = 10; -- total number of replications for experiment
 navigation_file = 'Missions_TCC/openangles.waypoints'; --mission file
 param:set('WPNAV_SPEED',1000); -- Horizontal speed
